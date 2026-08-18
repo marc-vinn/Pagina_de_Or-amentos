@@ -442,10 +442,16 @@ body {
   margin-bottom: 3.5rem;
 }
 
+.doc-logo-box {
+  display: flex;
+  align-items: center;
+}
+
 .doc-logo-box img {
-  max-height: 68px;
+  max-height: 120px;
   width: auto;
   object-fit: contain;
+  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.6));
 }
 
 .doc-title-box {
