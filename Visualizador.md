@@ -134,3 +134,35 @@ export async function extract3MFColors(fileOrBuffer) {
     }
   };
 }
+
+Exemplo de uso: 
+
+import * as THREE from 'three';
+import { ThreeMFLoader } from 'three/examples/jsm/loaders/3MFLoader.js';
+import { extract3MFColors } from './extract3MFColors.js';
+
+async function load3MFModelWithColors(file) {
+  const loader = new ThreeMFLoader();
+  
+  // 1. Converte o File em ArrayBuffer
+  const buffer = await file.arrayBuffer();
+
+  // 2. Extrai o mapa de cores do .3mf
+  const colorData = await extract3MFColors(buffer);
+  console.log("Cores dos Filamentos:", colorData.filamentColors);
+  console.log("Mapeamento por Parte:", colorData.partColorMap);
+
+  // 3. Carrega o modelo 3D no Three.js
+  loader.load(URL.createObjectURL(file), (group) => {
+    
+    // 4. Aplica as cores extraídas ao grupo do Three.js
+    colorData.applyToThreeGroup(group);
+
+    // Centraliza o modelo e adiciona à cena
+    group.rotation.x = -Math.PI / 2; // Ajusta orientação Z-up
+    scene.add(group);
+  });
+}
+ 
+
+ 

@@ -17,20 +17,36 @@ export async function extract3MFColors(fileOrBuffer) {
     let filamentColors = [];
     const partColorMap = {}; // { partId: "#HEXCOLOR" }
 
-    // 1. Extrai a paleta de filamentos (Metadata/project_settings.config)
-    const projectSettingsFile = loadedZip.file('Metadata/project_settings.config');
-    if (projectSettingsFile) {
-      try {
-        const jsonText = await projectSettingsFile.async('string');
-        const projectData = JSON.parse(jsonText);
+    // 1. Extrai a paleta de filamentos (Metadata/project_settings.config ou Metadata/slice_info.config)
+    const configFiles = [
+      'Metadata/project_settings.config',
+      'Metadata/slice_info.config',
+      'Metadata/model_settings.config'
+    ];
 
-        if (Array.isArray(projectData.filament_colour)) {
-          filamentColors = projectData.filament_colour.map(c => 
-            c.startsWith('#') ? c : `#${c}`
-          );
+    for (const path of configFiles) {
+      const file = loadedZip.file(path);
+      if (file) {
+        try {
+          const jsonText = await file.async('string');
+          // Pode ser JSON ou XML
+          if (jsonText.trim().startsWith('{')) {
+            const data = JSON.parse(jsonText);
+            if (Array.isArray(data.filament_colour)) {
+              data.filament_colour.forEach(c => {
+                const hex = c.startsWith('#') ? c : `#${c}`;
+                if (!filamentColors.includes(hex)) filamentColors.push(hex);
+              });
+            } else if (Array.isArray(data.filament_color)) {
+              data.filament_color.forEach(c => {
+                const hex = c.startsWith('#') ? c : `#${c}`;
+                if (!filamentColors.includes(hex)) filamentColors.push(hex);
+              });
+            }
+          }
+        } catch (e) {
+          // não é json válido
         }
-      } catch (e) {
-        console.warn('Não foi possível ler project_settings.config:', e);
       }
     }
 
@@ -43,11 +59,11 @@ export async function extract3MFColors(fileOrBuffer) {
         const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
 
         const parts = xmlDoc.querySelectorAll('part, object');
-        parts.forEach(part => {
-          const id = part.getAttribute('id');
+        parts.forEach((part, pIdx) => {
+          const id = part.getAttribute('id') || `${pIdx + 1}`;
           const extruderMeta = part.querySelector('metadata[key="extruder"]');
           
-          if (id && extruderMeta) {
+          if (extruderMeta) {
             const extruderIndex = parseInt(extruderMeta.getAttribute('value'), 10) - 1;
             if (filamentColors[extruderIndex]) {
               partColorMap[id] = filamentColors[extruderIndex];
@@ -59,11 +75,11 @@ export async function extract3MFColors(fileOrBuffer) {
       }
     }
 
-    // 3. Fallback: Checa o padrão 3MF tradicional (<colorgroup> em 3D/3dmodel.model)
-    const mainModelFile = loadedZip.file('3D/3dmodel.model') || loadedZip.file('3D/Objects/object-304.model');
-    if (mainModelFile && Object.keys(partColorMap).length === 0) {
+    // 3. Fallback: Checa o padrão 3MF tradicional em arquivos .model
+    const modelZipFiles = Object.keys(loadedZip.files).filter(name => name.endsWith('.model'));
+    for (const modelPath of modelZipFiles) {
       try {
-        const xmlText = await mainModelFile.async('string');
+        const xmlText = await loadedZip.file(modelPath).async('string');
         const parser = new DOMParser();
         const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
 
@@ -74,11 +90,14 @@ export async function extract3MFColors(fileOrBuffer) {
             const hex = c.getAttribute('color') || c.getAttribute('displaycolor');
             if (hex) {
               partColorMap[idx + 1] = hex.substring(0, 7);
+              if (!filamentColors.includes(hex.substring(0, 7))) {
+                filamentColors.push(hex.substring(0, 7));
+              }
             }
           });
         });
       } catch (e) {
-        console.warn('Não foi possível ler 3dmodel.model:', e);
+        // ignora se falhar em um .model específico
       }
     }
 
@@ -87,9 +106,12 @@ export async function extract3MFColors(fileOrBuffer) {
       partColorMap,
       applyToThreeGroup: (threeGroup) => {
         let appliedCount = 0;
+        let meshIndex = 0;
+
         threeGroup.traverse((child) => {
           if (child.isMesh) {
-            const name = child.name || (child.parent && child.parent.name) || '';
+            meshIndex++;
+            const name = child.name || (child.parent && child.parent.name) || (child.geometry && child.geometry.name) || '';
             const matchedId = name.match(/\d+/)?.[0];
             
             let hexColor = null;
@@ -98,13 +120,18 @@ export async function extract3MFColors(fileOrBuffer) {
               hexColor = partColorMap[matchedId];
             } else if (child.userData && child.userData.partId && partColorMap[child.userData.partId]) {
               hexColor = partColorMap[child.userData.partId];
+            } else if (partColorMap[meshIndex]) {
+              hexColor = partColorMap[meshIndex];
+            } else if (filamentColors.length > 0) {
+              // Se há filamentos extraídos, atribui as cores dos filamentos pelas sub-partes
+              hexColor = filamentColors[(meshIndex - 1) % filamentColors.length];
             }
 
             if (hexColor) {
               child.material = new THREE.MeshStandardMaterial({
-                color: hexColor,
-                roughness: 0.4,
-                metalness: 0.1,
+                color: new THREE.Color(hexColor),
+                roughness: 0.35,
+                metalness: 0.15,
                 side: THREE.DoubleSide
               });
               appliedCount++;
@@ -222,7 +249,7 @@ export class Keychain3DViewer {
         this.modelGroup.remove(child);
       }
 
-      // Try extract color metadata from 3MF slicer config using extract3MFColors
+      // Try extract color metadata from 3MF slicer configs
       const colorData = await extract3MFColors(arrayBuffer);
       let appliedExtractedColors = false;
 
@@ -230,7 +257,7 @@ export class Keychain3DViewer {
         appliedExtractedColors = colorData.applyToThreeGroup(object);
       }
 
-      // Traverse mesh to apply customColor or fallback material if no colors were extracted
+      // Process meshes for customColor, vertexColors, or fallback material
       object.traverse((child) => {
         if (child.isMesh) {
           child.castShadow = true;
@@ -253,23 +280,27 @@ export class Keychain3DViewer {
               side: THREE.DoubleSide
             });
           } else if (!appliedExtractedColors) {
-            if (child.material) {
-              if (Array.isArray(child.material)) {
-                child.material.forEach(mat => { mat.side = THREE.DoubleSide; });
-              } else {
-                child.material.side = THREE.DoubleSide;
-              }
-            } else {
+            // Check if 3MFLoader assigned a non-default color
+            const isWhiteDefault = !child.material || 
+              (child.material.color && child.material.color.getHex() === 0xffffff);
+
+            if (isWhiteDefault) {
+              // Substitute default white with vibrant 3Degraus brand red (#ff1b49)
               child.material = new THREE.MeshStandardMaterial({
                 color: 0xff1b49,
                 metalness: 0.2,
                 roughness: 0.4,
                 side: THREE.DoubleSide
               });
+            } else {
+              child.material.side = THREE.DoubleSide;
             }
           }
         }
       });
+
+      // Orient Z-up slicer models correctly
+      object.rotation.x = -Math.PI / 2;
 
       // Center and scale object
       const box = new THREE.Box3().setFromObject(object);
