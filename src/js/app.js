@@ -9,13 +9,16 @@ const state = {
     {
       id: 1,
       title: 'Chaveiro Emborrachado 3D',
-      mediaType: '2d', // '2d' or '3d'
-      mediaUrl: null, // Will use default placeholder if null
+      mediaType: '2d',
+      mediaUrl: null,
       arrayBuffer3D: null,
-      qnt: 100,
-      vt: 850.00,
-      vun: 8.50,
-      specs: 'Tamanho: 50x50mm | Relevo 3D em 4 cores | Argola metálica com corrente'
+      customColor: null,
+      specs: 'Tamanho: 50x50mm | Relevo 3D em 4 cores | Argola metálica com corrente',
+      rows: [
+        { id: 101, qnt: 100, vt: 850.00, vun: 8.50 },
+        { id: 102, qnt: 250, vt: 1875.00, vun: 7.50 },
+        { id: 103, qnt: 500, vt: 3250.00, vun: 6.50 }
+      ]
     }
   ]
 };
@@ -94,10 +97,12 @@ function addNewItem() {
     mediaType: '2d',
     mediaUrl: null,
     arrayBuffer3D: null,
-    qnt: 50,
-    vt: 500.00,
-    vun: 10.00,
-    specs: 'Tamanho: 45x45mm | Acabamento Premium | Corrente + Argola'
+    customColor: null,
+    specs: 'Tamanho: 45x45mm | Acabamento Premium | Corrente + Argola',
+    rows: [
+      { id: Date.now() + 1, qnt: 100, vt: 800.00, vun: 8.00 },
+      { id: Date.now() + 2, qnt: 300, vt: 2100.00, vun: 7.00 }
+    ]
   });
   renderEditor();
   renderPreview();
@@ -113,6 +118,34 @@ function removeItem(id) {
     active3DViewers.delete(id);
   }
   state.items = state.items.filter(item => item.id !== id);
+  renderEditor();
+  renderPreview();
+}
+
+function addNewRow(itemId) {
+  const item = state.items.find(i => i.id === itemId);
+  if (!item) return;
+
+  const lastRow = item.rows[item.rows.length - 1];
+  const newQnt = lastRow ? lastRow.qnt * 2 : 100;
+  const newVun = lastRow ? Math.max(1, lastRow.vun * 0.9) : 8.50;
+
+  item.rows.push({
+    id: Date.now(),
+    qnt: newQnt,
+    vun: parseFloat(newVun.toFixed(2)),
+    vt: parseFloat((newQnt * newVun).toFixed(2))
+  });
+
+  renderEditor();
+  renderPreview();
+}
+
+function removeRow(itemId, rowId) {
+  const item = state.items.find(i => i.id === itemId);
+  if (!item || item.rows.length <= 1) return;
+
+  item.rows = item.rows.filter(r => r.id !== rowId);
   renderEditor();
   renderPreview();
 }
@@ -134,7 +167,7 @@ function renderEditor() {
         <span class="item-title">#${index + 1} - ${escapeHtml(item.title)}</span>
         <button class="btn btn-outline-danger btn-sm remove-item-btn" data-id="${item.id}">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-          Remover
+          Remover Tabela
         </button>
       </div>
 
@@ -164,19 +197,38 @@ function renderEditor() {
       </div>
       ` : ''}
 
-      <div class="form-row-3">
-        <div class="form-group">
-          <label class="form-label">Quantidade (Qnt)</label>
-          <input type="number" class="form-control item-qnt-input" data-id="${item.id}" value="${item.qnt}" min="1">
+      <!-- Multi-row Tier Pricing Section -->
+      <div class="table-rows-editor">
+        <div class="table-rows-header">
+          <label>📊 Linhas de Preço & Quantidades</label>
+          <button type="button" class="btn btn-secondary btn-sm add-row-btn" data-item-id="${item.id}">
+            + Adicionar Linha
+          </button>
         </div>
-        <div class="form-group">
-          <label class="form-label">Valor Total (Vt R$)</label>
-          <input type="number" step="0.01" class="form-control item-vt-input" data-id="${item.id}" value="${item.vt.toFixed(2)}">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Valor Unit. (V. Un R$)</label>
-          <input type="number" step="0.01" class="form-control item-vun-input" data-id="${item.id}" value="${item.vun.toFixed(2)}">
-        </div>
+
+        ${item.rows.map((row) => `
+          <div class="tier-row-item" data-item-id="${item.id}" data-row-id="${row.id}">
+            <div>
+              <label class="form-label" style="font-size:0.7rem;">Quantidade</label>
+              <input type="number" class="form-control tier-qnt-input" data-item-id="${item.id}" data-row-id="${row.id}" value="${row.qnt}" min="1">
+            </div>
+            <div>
+              <label class="form-label" style="font-size:0.7rem;">Valor Total (R$)</label>
+              <input type="number" step="0.01" class="form-control tier-vt-input" data-item-id="${item.id}" data-row-id="${row.id}" value="${row.vt.toFixed(2)}">
+            </div>
+            <div>
+              <label class="form-label" style="font-size:0.7rem;">Valor Unit. (R$)</label>
+              <input type="number" step="0.01" class="form-control tier-vun-input" data-item-id="${item.id}" data-row-id="${row.id}" value="${row.vun.toFixed(2)}">
+            </div>
+            <div style="padding-top: 1.2rem;">
+              ${item.rows.length > 1 ? `
+                <button type="button" class="btn-icon-danger remove-row-btn" data-item-id="${item.id}" data-row-id="${row.id}" title="Remover linha">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              ` : ''}
+            </div>
+          </div>
+        `).join('')}
       </div>
 
       <div class="form-group">
@@ -192,11 +244,28 @@ function renderEditor() {
 }
 
 function bindEditorCardEvents() {
-  // Remove buttons
+  // Remove Item
   document.querySelectorAll('.remove-item-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       const id = parseInt(e.currentTarget.dataset.id);
       removeItem(id);
+    });
+  });
+
+  // Add Row button
+  document.querySelectorAll('.add-row-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const itemId = parseInt(e.currentTarget.dataset.itemId);
+      addNewRow(itemId);
+    });
+  });
+
+  // Remove Row button
+  document.querySelectorAll('.remove-row-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const itemId = parseInt(e.currentTarget.dataset.itemId);
+      const rowId = parseInt(e.currentTarget.dataset.rowId);
+      removeRow(itemId, rowId);
     });
   });
 
@@ -226,42 +295,54 @@ function bindEditorCardEvents() {
     });
   });
 
-  // Financial inputs calculation (Qnt, Vt, V.Un)
-  document.querySelectorAll('.item-qnt-input').forEach(input => {
+  // Financial inputs per row (Qnt, Vt, V.Un)
+  document.querySelectorAll('.tier-qnt-input').forEach(input => {
     input.addEventListener('input', (e) => {
-      const id = parseInt(e.target.dataset.id);
-      const item = state.items.find(i => i.id === id);
+      const itemId = parseInt(e.target.dataset.itemId);
+      const rowId = parseInt(e.target.dataset.rowId);
+      const item = state.items.find(i => i.id === itemId);
       if (item) {
-        item.qnt = parseFloat(e.target.value) || 0;
-        item.vt = item.qnt * item.vun;
-        updateItemFinancialInputs(id);
-        renderPreview();
+        const row = item.rows.find(r => r.id === rowId);
+        if (row) {
+          row.qnt = parseFloat(e.target.value) || 0;
+          row.vt = parseFloat((row.qnt * row.vun).toFixed(2));
+          updateRowFinancialInputs(itemId, rowId);
+          renderPreview();
+        }
       }
     });
   });
 
-  document.querySelectorAll('.item-vt-input').forEach(input => {
+  document.querySelectorAll('.tier-vt-input').forEach(input => {
     input.addEventListener('input', (e) => {
-      const id = parseInt(e.target.dataset.id);
-      const item = state.items.find(i => i.id === id);
+      const itemId = parseInt(e.target.dataset.itemId);
+      const rowId = parseInt(e.target.dataset.rowId);
+      const item = state.items.find(i => i.id === itemId);
       if (item) {
-        item.vt = parseFloat(e.target.value) || 0;
-        item.vun = item.qnt > 0 ? item.vt / item.qnt : 0;
-        updateItemFinancialInputs(id);
-        renderPreview();
+        const row = item.rows.find(r => r.id === rowId);
+        if (row) {
+          row.vt = parseFloat(e.target.value) || 0;
+          row.vun = row.qnt > 0 ? parseFloat((row.vt / row.qnt).toFixed(2)) : 0;
+          updateRowFinancialInputs(itemId, rowId);
+          renderPreview();
+        }
       }
     });
   });
 
-  document.querySelectorAll('.item-vun-input').forEach(input => {
+  document.querySelectorAll('.tier-vun-input').forEach(input => {
     input.addEventListener('input', (e) => {
-      const id = parseInt(e.target.dataset.id);
-      const item = state.items.find(i => i.id === id);
+      const itemId = parseInt(e.target.dataset.itemId);
+      const rowId = parseInt(e.target.dataset.rowId);
+      const item = state.items.find(i => i.id === itemId);
       if (item) {
-        item.vun = parseFloat(e.target.value) || 0;
-        item.vt = item.qnt * item.vun;
-        updateItemFinancialInputs(id);
-        renderPreview();
+        const row = item.rows.find(r => r.id === rowId);
+        if (row) {
+          row.vun = parseFloat(e.target.value) || 0;
+          row.vt = parseFloat((row.qnt * row.vun).toFixed(2));
+          updateRowFinancialInputs(itemId, rowId);
+          renderPreview();
+        }
       }
     });
   });
@@ -341,18 +422,20 @@ function handleMediaFileUpload(itemId, file) {
   }
 }
 
-function updateItemFinancialInputs(id) {
-  const item = state.items.find(i => i.id === id);
+function updateRowFinancialInputs(itemId, rowId) {
+  const item = state.items.find(i => i.id === itemId);
   if (!item) return;
+  const row = item.rows.find(r => r.id === rowId);
+  if (!row) return;
 
-  const vtInput = document.querySelector(`.item-vt-input[data-id="${id}"]`);
-  const vunInput = document.querySelector(`.item-vun-input[data-id="${id}"]`);
+  const vtInput = document.querySelector(`.tier-vt-input[data-item-id="${itemId}"][data-row-id="${rowId}"]`);
+  const vunInput = document.querySelector(`.tier-vun-input[data-item-id="${itemId}"][data-row-id="${rowId}"]`);
 
   if (vtInput && document.activeElement !== vtInput) {
-    vtInput.value = item.vt.toFixed(2);
+    vtInput.value = row.vt.toFixed(2);
   }
   if (vunInput && document.activeElement !== vunInput) {
-    vunInput.value = item.vun.toFixed(2);
+    vunInput.value = row.vun.toFixed(2);
   }
 }
 
@@ -393,7 +476,10 @@ function renderPreview() {
   let grandTotal = 0;
 
   state.items.forEach((item) => {
-    grandTotal += item.vt;
+    // Add total of first pricing tier or highest tier to grand total calculation
+    if (item.rows && item.rows.length > 0) {
+      grandTotal += item.rows[0].vt;
+    }
 
     const row = document.createElement('div');
     row.className = 'doc-item-row';
@@ -409,7 +495,6 @@ function renderPreview() {
         </div>
       `;
     } else {
-      // 2D Image (Use uploaded image or vector keychain graphic matching Orçamento Chaveiros.pdf)
       const defaultKeychainSVG = `data:image/svg+xml;utf8,${encodeURIComponent(`
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%">
           <circle cx="100" cy="100" r="85" fill="#090d20" stroke="#ff1b49" stroke-width="8"/>
@@ -428,7 +513,7 @@ function renderPreview() {
       `;
     }
 
-    // Budget Table Column
+    // Budget Table Column with Multiple Rows
     row.innerHTML = `
       ${mediaHTML}
       <div class="doc-table-container">
@@ -441,11 +526,13 @@ function renderPreview() {
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td>${item.qnt}</td>
-              <td>R$ ${formatCurrency(item.vt)}</td>
-              <td>R$ ${formatCurrency(item.vun)}</td>
-            </tr>
+            ${item.rows.map(r => `
+              <tr>
+                <td>${r.qnt}</td>
+                <td>R$ ${formatCurrency(r.vt)}</td>
+                <td>R$ ${formatCurrency(r.vun)}</td>
+              </tr>
+            `).join('')}
           </tbody>
         </table>
         ${item.specs ? `<div class="doc-specs-box"><strong>ESPECIFICAÇÕES:</strong> ${escapeHtml(item.specs)}</div>` : ''}
@@ -497,10 +584,13 @@ function loadDemoData() {
       mediaType: '2d',
       mediaUrl: null,
       arrayBuffer3D: null,
-      qnt: 100,
-      vt: 850.00,
-      vun: 8.50,
-      specs: 'Tamanho: 55mm x 55mm | Relevo emborrachado em 3 cores | Argola com corrente giratória'
+      customColor: null,
+      specs: 'Tamanho: 55mm x 55mm | Relevo emborrachado em 3 cores | Argola com corrente giratória',
+      rows: [
+        { id: 1, qnt: 100, vt: 850.00, vun: 8.50 },
+        { id: 2, qnt: 250, vt: 1875.00, vun: 7.50 },
+        { id: 3, qnt: 500, vt: 3250.00, vun: 6.50 }
+      ]
     },
     {
       id: 102,
@@ -508,10 +598,12 @@ function loadDemoData() {
       mediaType: '2d',
       mediaUrl: null,
       arrayBuffer3D: null,
-      qnt: 250,
-      vt: 1625.00,
-      vun: 6.50,
-      specs: 'Tamanho: 40mm x 40mm | Gravação a laser em alta definição | Argola de aço inox'
+      customColor: null,
+      specs: 'Tamanho: 40mm x 40mm | Gravação a laser em alta definição | Argola de aço inox',
+      rows: [
+        { id: 4, qnt: 250, vt: 1625.00, vun: 6.50 },
+        { id: 5, qnt: 500, vt: 2750.00, vun: 5.50 }
+      ]
     }
   ];
 

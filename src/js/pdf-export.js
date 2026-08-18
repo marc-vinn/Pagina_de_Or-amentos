@@ -1,4 +1,5 @@
-import html2pdf from 'html2pdf.js';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 
 export async function exportToPDF(pdfElement, clientName = 'Cliente') {
   if (!pdfElement) return;
@@ -31,33 +32,33 @@ export async function exportToPDF(pdfElement, clientName = 'Cliente') {
   const cleanClientName = clientName.replace(/[^a-zA-Z0-9_-]/g, '_') || 'Cliente';
   const filename = `Orcamento_3Degraus_${cleanClientName}_${formattedDate}.pdf`;
 
-  const opt = {
-    margin: 0,
-    filename: filename,
-    image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: {
-      scale: 2,
+  try {
+    // Render the DOM element with exact dark theme background (#030614) and high resolution scaling
+    const canvas = await html2canvas(pdfElement, {
+      scale: 2.75, // Scale 900px preview up to ~2480px high definition resolution
       useCORS: true,
-      logging: false,
+      allowTaint: true,
       backgroundColor: '#030614',
+      logging: false,
       scrollX: 0,
-      scrollY: 0,
-      windowWidth: 2480
-    },
-    jsPDF: {
+      scrollY: 0
+    });
+
+    const imgData = canvas.toDataURL('image/jpeg', 0.98);
+
+    // Create 2480x3508 px Portrait PDF with exact full-bleed dimensions
+    const pdf = new jsPDF({
+      orientation: 'portrait',
       unit: 'px',
       format: [2480, 3508],
-      orientation: 'portrait',
       hotfixes: ['px_scaling']
-    },
-    pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
-  };
+    });
 
-  try {
-    await html2pdf().set(opt).from(pdfElement).save();
+    pdf.addImage(imgData, 'JPEG', 0, 0, 2480, 3508);
+    pdf.save(filename);
   } catch (err) {
     console.error('Erro ao gerar PDF:', err);
-    alert('Ocorreu um erro ao gerar o PDF. Tentando acionar caixa de impressão do navegador...');
+    alert('Ocorreu um erro ao gerar o PDF. Acionando janela de impressão...');
     window.print();
   } finally {
     // Restore WebGL Canvas viewports
