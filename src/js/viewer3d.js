@@ -168,7 +168,7 @@ export class Keychain3DViewer {
         object.position.sub(center); // Center geometry
 
         const maxDim = Math.max(size.x, size.y, size.z);
-        const targetDim = 45; // Scale to fit camera view nicely
+        const targetDim = 54; // Scale to fill the enlarged viewport prominently
         if (maxDim > 0) {
           const scale = targetDim / maxDim;
           object.scale.set(scale, scale, scale);

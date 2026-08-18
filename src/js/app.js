@@ -435,9 +435,9 @@ function renderPreview() {
         <table class="doc-table">
           <thead>
             <tr>
-              <th>Qnt</th>
-              <th>Vt</th>
-              <th>V. Un</th>
+              <th>Quantidade</th>
+              <th>Valor Total</th>
+              <th>Valor Unitário</th>
             </tr>
           </thead>
           <tbody>

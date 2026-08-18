@@ -434,10 +434,10 @@ body {
   width: 100%;
 }
 
-/* Keychain Media Container (2D Image or 3D Canvas) */
+/* Keychain Media Container (2D Image or 3D Canvas) - Ampliado e Sem Borda */
 .doc-keychain-media {
-  width: 240px;
-  height: 200px;
+  width: 280px;
+  height: 240px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -449,7 +449,7 @@ body {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
-  filter: drop-shadow(0 10px 20px rgba(0,0,0,0.6));
+  filter: drop-shadow(0 12px 25px rgba(0, 0, 0, 0.7));
 }
 
 .doc-keychain-canvas-wrapper {
@@ -458,8 +458,8 @@ body {
   position: relative;
   border-radius: var(--radius-md);
   overflow: hidden;
-  background: radial-gradient(circle at center, #101633 0%, #050714 80%);
-  border: 1px solid rgba(255, 27, 73, 0.3);
+  background: transparent;
+  border: none;
 }
 
 .doc-keychain-canvas-wrapper canvas {
@@ -502,12 +502,13 @@ body {
 .doc-table th {
   border-bottom: 2px solid var(--primary-red);
   border-right: 2px solid var(--primary-red);
-  padding: 0.75rem 1rem;
-  font-size: 1.15rem;
+  padding: 0.75rem 0.6rem;
+  font-size: 1.05rem;
   font-weight: 700;
   color: #ffffff;
   text-align: center;
   width: 33.33%;
+  white-space: nowrap;
 }
 
 .doc-table th:last-child {
