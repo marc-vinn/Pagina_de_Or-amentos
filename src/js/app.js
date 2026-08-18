@@ -126,6 +126,9 @@ function renderEditor() {
   state.items.forEach((item, index) => {
     const card = document.createElement('div');
     card.className = 'item-editor-card';
+
+    const is3D = item.mediaType === '3d';
+
     card.innerHTML = `
       <div class="item-editor-header">
         <span class="item-title">#${index + 1} - ${escapeHtml(item.title)}</span>
@@ -142,9 +145,24 @@ function renderEditor() {
 
       <div class="file-dropzone" data-id="${item.id}">
         <p>📁 Clique ou arraste uma <strong>Imagem 2D (PNG, JPG)</strong> ou arquivo <strong>.3MF (3D)</strong></p>
-        <span class="media-type-badge">${item.mediaType === '3d' ? '📦 Modelo 3D (.3MF)' : '🖼️ Imagem 2D'}</span>
+        <span class="media-type-badge">${is3D ? '📦 Modelo 3D (.3MF)' : '🖼️ Imagem 2D'}</span>
         <input type="file" class="hidden item-file-input" data-id="${item.id}" accept=".png,.jpg,.jpeg,.webp,.svg,.3mf">
       </div>
+
+      ${is3D ? `
+      <div class="form-group color-selector-group">
+        <label class="form-label">🎨 Cor do Modelo 3D</label>
+        <div class="color-options-row">
+          <button type="button" class="color-chip ${!item.customColor ? 'active' : ''}" data-id="${item.id}" data-color="">Original 3MF</button>
+          <button type="button" class="color-chip ${item.customColor === '#ff1b49' ? 'active' : ''}" data-id="${item.id}" data-color="#ff1b49" style="background:#ff1b49;"></button>
+          <button type="button" class="color-chip ${item.customColor === '#ff6b1b' ? 'active' : ''}" data-id="${item.id}" data-color="#ff6b1b" style="background:#ff6b1b;"></button>
+          <button type="button" class="color-chip ${item.customColor === '#f1c40f' ? 'active' : ''}" data-id="${item.id}" data-color="#f1c40f" style="background:#f1c40f;"></button>
+          <button type="button" class="color-chip ${item.customColor === '#00d2ff' ? 'active' : ''}" data-id="${item.id}" data-color="#00d2ff" style="background:#00d2ff;"></button>
+          <button type="button" class="color-chip ${item.customColor === '#ffffff' ? 'active' : ''}" data-id="${item.id}" data-color="#ffffff" style="background:#ffffff;"></button>
+          <input type="color" class="item-color-picker" data-id="${item.id}" value="${item.customColor || '#ff1b49'}" title="Escolher cor personalizada">
+        </div>
+      </div>
+      ` : ''}
 
       <div class="form-row-3">
         <div class="form-group">
@@ -256,6 +274,39 @@ function bindEditorCardEvents() {
       if (item) {
         item.specs = e.target.value;
         renderPreview();
+      }
+    });
+  });
+
+  // Color chips for 3D model
+  document.querySelectorAll('.color-chip').forEach(chip => {
+    chip.addEventListener('click', (e) => {
+      const id = parseInt(e.currentTarget.dataset.id);
+      const color = e.currentTarget.dataset.color || null;
+      const item = state.items.find(i => i.id === id);
+      if (item) {
+        item.customColor = color;
+        renderEditor();
+        if (active3DViewers.has(id)) {
+          active3DViewers.get(id).setModelColor(color);
+        } else {
+          renderPreview();
+        }
+      }
+    });
+  });
+
+  // Custom color picker input for 3D model
+  document.querySelectorAll('.item-color-picker').forEach(picker => {
+    picker.addEventListener('input', (e) => {
+      const id = parseInt(e.target.dataset.id);
+      const color = e.target.value;
+      const item = state.items.find(i => i.id === id);
+      if (item) {
+        item.customColor = color;
+        if (active3DViewers.has(id)) {
+          active3DViewers.get(id).setModelColor(color);
+        }
       }
     });
   });
@@ -429,7 +480,7 @@ function setup3DViewerForItem(item) {
 
   try {
     const viewer = new Keychain3DViewer(wrapper);
-    viewer.load3MF(item.arrayBuffer3D);
+    viewer.load3MF(item.arrayBuffer3D, item.customColor);
     active3DViewers.set(item.id, viewer);
   } catch (e) {
     console.error(`Error rendering 3D viewer for item ${item.id}:`, e);

@@ -291,6 +291,54 @@ body {
   margin-top: 0.4rem;
 }
 
+/* 3D Color Selector Controls */
+.color-selector-group {
+  margin-bottom: 1rem;
+}
+
+.color-options-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.4rem;
+}
+
+.color-chip {
+  height: 28px;
+  min-width: 28px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0 0.5rem;
+  background: var(--bg-input);
+  color: var(--text-white);
+  transition: all 0.2s;
+}
+
+.color-chip:hover {
+  transform: scale(1.05);
+  border-color: var(--primary-red);
+}
+
+.color-chip.active {
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+}
+
+.item-color-picker {
+  width: 32px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+}
+
+
 /* Live Preview Document Area */
 .preview-panel {
   display: flex;
